@@ -340,21 +340,21 @@ void thread_sleep(uint64_t sleep_ticks){
 /* It iterates through the sleep_list, decrementing the 
   sleep_ticks attribute, and threads that reach zero are
   moved from sleep_list -> ready_list. */
-void threads_wakeup(){
+void threads_wakeup(uint64_t allTicks){
   struct list_elem *e;
 
   ASSERT (intr_get_level () == INTR_OFF);
 
-  for(e = list_begin(&sleep_list); e != list_end(&sleep_list); e = list_next(e)){
+  for(e = list_begin(&sleep_list); e != list_end(&sleep_list); ){
+
     struct thread *t = list_entry(e, struct thread, elem);
-    t->sleep_ticks--;
-    if(t->sleep_ticks <= 0){
+    e = list_next(e);
+    
+    if(allTicks >= t->sleep_ticks){
       list_remove(&t->elem);
-      list_push_back(&ready_list, &t->elem);
-      t->status = THREAD_READY;
+      thread_unblock(t);
     }
   }
-
 }
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
