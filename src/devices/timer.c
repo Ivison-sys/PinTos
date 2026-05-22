@@ -175,7 +175,28 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  threads_wakeup(timer_ticks());
+  
+  if (thread_mlfqs) 
+    {
+      // 1. Incrementa o recent_cpu da thread atual a cada tick
+      thread_mlfqs_increment_recent_cpu ();
+
+      // 2. A cada 4 ticks, recalcula a prioridade de TODAS as threads
+      if (ticks % 4 == 0)
+        {
+          thread_foreach (thread_mlfqs_recalc_priority, NULL);
+        }
+
+      // 3. A cada 1 segundo (TIMER_FREQ), atualiza load_avg e recent_cpu
+      if (ticks % TIMER_FREQ == 0)
+        {
+          thread_mlfqs_update_load_avg ();
+          thread_foreach (thread_mlfqs_update_recent_cpu, NULL);
+        }
+    }
+
+  // Acorda as threads que estavam dormindo (timer_sleep)
+  threads_wakeup(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

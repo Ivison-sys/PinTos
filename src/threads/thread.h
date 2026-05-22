@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/fixedPoint.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -22,7 +23,15 @@ typedef int tid_t;
 /* Thread priorities. */
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
-#define PRI_MAX 63                      /* Highest priority. */
+#define PRI_MAX 63   
+
+   /* uso recente de CPU em ponto fixo */
+ 
+/* 3. Após "extern bool thread_mlfqs;": */
+
+ 
+/* 4. Protótipos das funções novas (junto dos outros protótipos): */
+/* Highest priority. */
 
 /* A kernel thread or user process.
 
@@ -88,9 +97,10 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    struct list_elem allelem;           /* List element for all threads list. */
-
+    int nice;                   /* -20 (egoísta) a +20 (bonzinha) */
+    fixed_point_t recent_cpu;
     /* Shared between thread.c and synch.c. */
+    struct list_elem allelem;           /* List element for all threads list. */
     struct list_elem elem;              /* List element. */
 
 #ifdef USERPROG
@@ -107,6 +117,7 @@ struct thread
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
+extern fixed_point_t load_avg;
 
 void thread_init (void);
 void thread_start (void);
@@ -139,5 +150,10 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void thread_mlfqs_increment_recent_cpu (void);
+void thread_mlfqs_update_load_avg      (void);
+void thread_mlfqs_update_recent_cpu    (struct thread *t, void *aux);
+void thread_mlfqs_recalc_priority      (struct thread *t, void *aux);             
 
 #endif /* threads/thread.h */

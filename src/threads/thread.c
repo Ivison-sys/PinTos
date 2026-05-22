@@ -38,6 +38,7 @@ static struct thread *idle_thread;
 /* Initial thread, the thread running init.c:main(). */
 static struct thread *initial_thread;
 
+fixed_point_t load_avg;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
@@ -103,6 +104,7 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  load_avg = IntToFp(0);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -389,33 +391,96 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_mlfqs_increment_recent_cpu(void)
 {
-  /* Not yet implemented. */
+  if (thread_current() == idle_thread)
+    return;
+  thread_current()->recent_cpu = FpAddInt(thread_current()->recent_cpu, 1);
 }
-
-/* Returns the current thread's nice value. */
-int
-thread_get_nice (void) 
+ 
+/* Atualiza load_avg uma vez por segundo.
+   load_avg = (59/60)*load_avg + (1/60)*ready_threads */
+void
+thread_mlfqs_update_load_avg(void)
 {
-  /* Not yet implemented. */
-  return 0;
+  fixed_point_t c59 = FpDiv(IntToFp(59), IntToFp(60));
+  fixed_point_t c1  = FpDiv(IntToFp(1),  IntToFp(60));
+ 
+  int ready = (int) list_size(&ready_list);
+  if (thread_current() != idle_thread)
+    ready++;
+ 
+  load_avg = FpAdd(FpMul(c59, load_avg), FpMulInt(c1, ready));
+ 
+  if (load_avg < 0)
+    load_avg = 0;
 }
-
-/* Returns 100 times the system load average. */
-int
-thread_get_load_avg (void) 
+ 
+/* Atualiza o recent_cpu de UMA thread (usada com thread_foreach).
+   recent = decay * recent + nice
+   decay  = (2*avg) / (2*avg + 1) */
+void
+thread_mlfqs_update_recent_cpu(struct thread *t, void *aux UNUSED)
 {
-  /* Not yet implemented. */
-  return 0;
+  if (t == idle_thread)
+    return;
+ 
+  fixed_point_t two_avg = FpMulInt(load_avg, 2);
+  fixed_point_t decay   = FpDiv(two_avg, FpAddInt(two_avg, 1));
+  fixed_point_t temp = FpMul(decay, t->recent_cpu);
+  t->recent_cpu = FpAddInt(temp, t->nice);
 }
-
-/* Returns 100 times the current thread's recent_cpu value. */
-int
-thread_get_recent_cpu (void) 
+ 
+/* Recalcula a prioridade de UMA thread (usada com thread_foreach).
+   p = floor(PRI_MAX - recent_cpu/4 - nice*2) */
+void
+thread_mlfqs_recalc_priority(struct thread *t, void *aux UNUSED)
 {
-  /* Not yet implemented. */
-  return 0;
+  if (t == idle_thread)
+    return;
+ 
+  int p = FpToIntArredodamento( FpSub(FpSub(IntToFp(PRI_MAX), FpDivInt(t->recent_cpu, 4)), IntToFp(t->nice * 2)));
+ 
+  t->priority = p < PRI_MIN ? PRI_MIN : p > PRI_MAX ? PRI_MAX : p;
+}
+ 
+/* --- Getters e setters --- */ 
+ 
+void
+thread_set_nice(int nice)
+{
+  enum intr_level old = intr_disable();
+  thread_current()->nice = nice;
+  thread_mlfqs_recalc_priority(thread_current(), NULL);
+  intr_set_level(old);
+  thread_yield();
+}
+ 
+int
+thread_get_nice(void)
+{
+  enum intr_level old = intr_disable();
+  int n = thread_current()->nice;
+  intr_set_level(old);
+  return n;
+}
+ 
+int
+thread_get_load_avg(void)
+{
+  enum intr_level old = intr_disable();
+  int v = FpToIntArredodamento(FpMulInt(load_avg, 100));
+  intr_set_level(old);
+  return v;
+}
+ 
+int
+thread_get_recent_cpu(void)
+{
+  enum intr_level old = intr_disable();
+  int v = FpToIntZero(FpMulInt(thread_current()->recent_cpu, 100));
+  intr_set_level(old);
+  return v;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -504,6 +569,8 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->nice = 0;                    /* ← adiciona */
+  t->recent_cpu = IntToFp(0); 
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
