@@ -109,15 +109,32 @@ void
 sema_up (struct semaphore *sema) 
 {
   enum intr_level old_level;
-
+  struct thread *woken_thread = NULL;
+  
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
+    {
+      // 1. Ordena para garantir que vamos pegar a de maior prioridade
+      list_sort (&sema->waiters, thread_priority, NULL);
+
+      // 2. SALVA a thread na variável antes de acordá-la!
+      woken_thread = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
+      
+      // 3. Agora sim, tira ela do bloqueio
+      thread_unblock (woken_thread);
+    }
+  
   sema->value++;
   intr_set_level (old_level);
+  
+  // 4. Como woken_thread não é mais NULL, o if agora vai funcionar!
+  if (woken_thread != NULL && !intr_context () && 
+      woken_thread->priority > thread_current ()->priority) 
+    {
+      thread_yield ();
+    }
 }
 
 static void sema_test_helper (void *sema_);

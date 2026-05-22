@@ -185,6 +185,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
       if (ticks % 4 == 0)
         {
           thread_foreach (thread_mlfqs_recalc_priority, NULL);
+          thread_sort_ready_list ();
         }
 
       // 3. A cada 1 segundo (TIMER_FREQ), atualiza load_avg e recent_cpu

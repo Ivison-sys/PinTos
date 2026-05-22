@@ -155,5 +155,7 @@ void thread_mlfqs_increment_recent_cpu (void);
 void thread_mlfqs_update_load_avg      (void);
 void thread_mlfqs_update_recent_cpu    (struct thread *t, void *aux);
 void thread_mlfqs_recalc_priority      (struct thread *t, void *aux);             
+void thread_sort_ready_list (void);
 
+bool thread_priority (const struct list_elem *a, const struct list_elem *b, void *aux);
 #endif /* threads/thread.h */
