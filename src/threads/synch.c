@@ -109,29 +109,33 @@ void
 sema_up (struct semaphore *sema) 
 {
   enum intr_level old_level;
-  struct thread *woken_thread = NULL;
+  struct thread *active_thread = NULL;
   
   ASSERT (sema != NULL);
 
+  /* Desliga interrupções para proteger a operação —
+     nenhuma outra thread pode interferir aqui */
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) 
     {
-      // 1. Ordena para garantir que vamos pegar a de maior prioridade
+      //  Ordena para garantir que vamos pegar a de maior prioridade
       list_sort (&sema->waiters, thread_priority, NULL);
 
-      // 2. SALVA a thread na variável antes de acordá-la!
-      woken_thread = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
+      // Salva a thread na variável antes de acordar
+      active_thread = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
       
-      // 3. Agora sim, tira ela do bloqueio
-      thread_unblock (woken_thread);
+      // tira ela do bloqueio
+      thread_unblock (active_thread);
     }
   
+      // Incrementa o semáforo — recurso está disponível 
   sema->value++;
+  // Religa as interrupções
   intr_set_level (old_level);
   
-  // 4. Como woken_thread não é mais NULL, o if agora vai funcionar!
-  if (woken_thread != NULL && !intr_context () && 
-      woken_thread->priority > thread_current ()->priority) 
+  //  Como active_thread não é mais NULL, o if agora vai funcionar!
+  if (active_thread != NULL && !intr_context () && 
+      active_thread->priority > thread_current ()->priority) 
     {
       thread_yield ();
     }

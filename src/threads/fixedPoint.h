@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+// FUNÇÃO PARA TODAS AS OPERAÇÕES QUE ENVOLVE PONTO FIXO 17.14
+
 typedef int fixed_point_t;
 
 #define F (1 << 14)
