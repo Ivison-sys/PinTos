@@ -73,7 +73,16 @@ thread_priority (const struct list_elem *a, const struct list_elem *b, void *aux
   struct thread *tb = list_entry (b, struct thread, elem);
   return ta->priority > tb->priority;
 }
- 
+
+/* Função auxiliar para comparar o tempo de espera das threads. */
+bool 
+thread_sleep_less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+  struct thread *ta = list_entry (a, struct thread, elem);
+  struct thread *tb = list_entry (b, struct thread, elem);
+  
+  return ta->sleep_ticks < tb->sleep_ticks;
+}
+
 void
 thread_init (void) 
 {
@@ -268,9 +277,8 @@ void thread_sleep(uint64_t sleep_ticks){
  
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&sleep_list, &cur->elem);
-  cur->status = THREAD_BLOCKED;
-  schedule ();
+    list_insert_ordered (&sleep_list, &cur->elem, thread_sleep_less, NULL);
+  thread_block();
   intr_set_level (old_level);
 }
  
@@ -294,7 +302,13 @@ void threads_wakeup(uint64_t allTicks){
        */
       list_insert_ordered (&ready_list, &t->elem, thread_priority, NULL);
       t->status = THREAD_READY;
-    }
+    } else{
+        /*Como as threads estão ordenandas crescentimente 
+          Assim que der falso em t.next também será, por isso encerro
+          o loop 
+        */ 
+        break;
+      }
   }
 }
  
