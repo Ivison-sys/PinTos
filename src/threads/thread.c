@@ -25,7 +25,7 @@ static struct thread *idle_thread;
 static struct thread *initial_thread;
  
 /* 
-ALTERAÇÃO 1: variável global load_avg
+ALTERAÇÃO-MLFQS 1: variável global load_avg
 O load_avg pertence ao sistema inteiro, não a uma
 thread. Definida aqui, declarada extern no thread.h.
  */
@@ -61,7 +61,7 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
  
 /* 
-ALTERAÇÃO 2: função de comparação de prioridade
+ALTERAÇÃO-MLFQS 2: função de comparação de prioridade
 Usada por list_insert_ordered e list_max para manter
 a ready_list ordenada por prioridade decrescente.
 thread_priority(a, b) retorna true se a > b em prio.
@@ -99,7 +99,7 @@ thread_init (void)
   initial_thread->tid = allocate_tid ();
  
   /* 
-  ALTERAÇÃO 3: inicializa load_avg como zero
+  ALTERAÇÃO-MLFQS 3: inicializa load_avg como zero
   Feito aqui porque thread_init() roda uma única vez
   quando o kernel arranca — antes de qualquer thread.
    */
@@ -198,7 +198,7 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
  
   /* 
-  ALTERAÇÃO 4: list_insert_ordered em vez de push_back
+  ALTERAÇÃO-MLFQS 4: list_insert_ordered em vez de push_back
   Insere a thread na posição correta da ready_list
   de acordo com a prioridade (maior prioridade na frente).
   Assim o next_thread_to_run() pode usar pop_front e
@@ -257,8 +257,8 @@ thread_yield (void)
   old_level = intr_disable ();
   if (cur != idle_thread) 
     /* 
-    ALTERAÇÃO 5: list_insert_ordered em vez de push_back
-    Mesmo motivo da ALTERAÇÃO 4 — mantém a lista ordenada
+    ALTERAÇÃO-MLFQS 5: list_insert_ordered em vez de push_back
+    Mesmo motivo da ALTERAÇÃO-MLFQS 4 — mantém a lista ordenada
     quando a thread atual cede a CPU.
      */
     list_insert_ordered (&ready_list, &cur->elem, thread_priority, NULL);
@@ -294,7 +294,7 @@ void threads_wakeup(uint64_t allTicks){
     if(allTicks >= t->sleep_ticks){
       list_remove(&t->elem);
       /* 
-      ALTERAÇÃO 6: insert_ordered em vez de thread_unblock
+      ALTERAÇÃO-MLFQS 6: insert_ordered em vez de thread_unblock
       threads_wakeup roda com interrupções desligadas.
       thread_unblock chamaria thread_yield que tem ASSERT
       de interrupções ligadas — causaria crash.
@@ -340,7 +340,7 @@ thread_get_priority (void)
 }
  
 /* 
-ALTERAÇÃO 7: funções do MLFQS
+ALTERAÇÃO-MLFQS 7: funções do MLFQS
 Estas 4 funções são o motor do escalonador.
 Antes eram stubs vazios com "Not yet implemented".
  */
@@ -528,7 +528,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
  
   /* 
-  ALTERAÇÃO 9: inicializa nice e recent_cpu em cada thread
+  ALTERAÇÃO-MLFQS 9: inicializa nice e recent_cpu em cada thread
   init_thread() roda toda vez que uma thread é criada.
   Sem isso os campos ficam com lixo de memória e a
   prioridade calculada sai errada desde o início.
@@ -559,7 +559,7 @@ next_thread_to_run (void)
     return idle_thread;
   else
     /* 
-    ALTERAÇÃO 10: pop_front funciona porque a lista
+    ALTERAÇÃO-MLFQS 10: pop_front funciona porque a lista
     está sempre ordenada por prioridade.
     O primeiro elemento é sempre o de maior prioridade.
      */
@@ -617,7 +617,7 @@ allocate_tid (void)
 }
  
 /* 
-ALTERAÇÃO 11: thread_sort_ready_list
+ALTERAÇÃO-MLFQS 11: thread_sort_ready_list
 Chamada pelo timer.c após recalcular todas as prioridades
 (1x/segundo). Como o MLFQS muda prioridades de todas as
 threads de uma vez, a lista pode ficar fora de ordem —
